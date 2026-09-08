@@ -1,0 +1,9 @@
+import test from 'node:test';
+import assert from 'node:assert/strict';
+import {formatAlert,enrichEvents} from '../src/notifications.js';
+const event={id:'e',type:'ADD',symbol:'YES',handle:'alice',tokenKey:'abc:1',userId:'u',tradeId:'t',windowStart:Date.parse('2026-09-06T00:00:00Z'),at:Date.parse('2026-09-06T00:02:00Z'),delta:20,quantity:100,avgEntryPrice:2,price:4,marketCap:1000000};
+test('Chinese alert separates observed cap and estimated cost cap',()=>{const s=formatAlert(event);assert.match(s,/加仓/);assert.match(s,/本轮买入数量：20 YES/);assert.match(s,/平均建仓市值（估算）：\$500,000/);assert.match(s,/暂无匹配成交明细/);assert.match(s,/北京时间/);assert.ok(!s.includes('undefined'));});
+test('feed enrichment checks identity, side and observation window',()=>{const f={id:'f',userId:'u',tradeId:'t',type:'swap_buy',createdAt:'2026-09-06T00:01:00Z',usdAmount:80,marketCap:900000};const state={events:[{...event}],outbox:[{event:{...event}}]};enrichEvents(state,[f,f,{...f,id:'x',userId:'wrong'},{...f,id:'y',type:'swap_sell'},{...f,id:'z',createdAt:'2026-09-05T00:00:00Z'}],'abc:1',new Set());assert.equal(state.events[0].fills.length,1);assert.equal(state.outbox[0].event.fills.length,1);assert.match(formatAlert(state.events[0]),/\$90万/);});
+test('missing values never invent money; EXIT and cap have dedicated wording',()=>{assert.match(formatAlert({...event,type:'EXIT',avgEntryPrice:null}),/清仓/);assert.match(formatAlert({...event,avgEntryPrice:null}),/平均建仓市值（估算）：待确认/);assert.match(formatAlert({...event,type:'MARKET_CAP',direction:'down',multiple:.5,base:100,target:50}),/下跌阈值提醒/);});
+
+test('compact KOL row follows token action amount cap timestamp order',()=>{const text=formatAlert({...event,fills:[{at:'2026-09-06T00:01:00Z',usdAmount:19.26,marketCap:1704000}]});assert.match(text,/YES ｜ 🟢 买入 ｜ \$19.26 ｜ \$170.4万 ｜ 2026/);assert.match(text,/KOL @alice/);assert.match(text,/代币 ｜ 操作 ｜ 金额 ｜ 成交市值 ｜ 时间/);});

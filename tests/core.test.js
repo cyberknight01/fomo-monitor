@@ -1,0 +1,18 @@
+import test from 'node:test';import assert from 'node:assert/strict';
+import {positions,normalizeTrade,tradeDiff,key,validateFriends,unwrap} from '../src/core.js';
+const raw=(patch={})=>({id:'trade1',tokenAddress:'0xAbC',networkId:56,humanTokenAmount:10,sumSwapOpen:10,sumSwapClosed:0,sumTransferIn:0,sumTransferOut:0,createdAt:'2026-09-06T01:00:00Z',updatedAt:'2026-09-06T01:00:00Z',closedAt:null,...patch});
+const tr=patch=>normalizeTrade(raw(patch));
+const balance=(patch={})=>({balance:{tokenAddress:'0xAbC',shiftedBalance:10},tokenFilterResult:{priceUSD:'2',token:{networkId:56,symbol:'TEST'}},activeTrade:raw({avgEntryPrice:1}),valuation:{includeUnrealizedPnl:true},...patch});
+test('identity includes chain and preserves Solana case',()=>{assert.notEqual(key('Mint',1),key('mint',1));assert.notEqual(key('0xABC',1),key('0xABC',56));assert.equal(key('0xABC',56),key('0xabc',56));});
+test('first observation is quiet HOLD',()=>assert.deepEqual(tradeDiff(null,tr()).actions,[]));
+test('price changes cannot create an action',()=>assert.equal(tradeDiff(tr(),tr()).state,'HOLD'));
+test('buy and add are based on cumulative fills',()=>{assert.deepEqual(tradeDiff(tr(),tr({humanTokenAmount:20,sumSwapOpen:20})).actions,['ADD']);assert.deepEqual(tradeDiff(tr({humanTokenAmount:0,sumSwapOpen:0}),tr()).actions,['BUY']);});
+test('partial and complete sales differ',()=>{assert.deepEqual(tradeDiff(tr(),tr({humanTokenAmount:5,sumSwapClosed:5})).actions,['SELL']);assert.deepEqual(tradeDiff(tr(),tr({humanTokenAmount:0,sumSwapClosed:10,closedAt:'2026-09-06T02:00:00Z'})).actions,['EXIT']);});
+test('transfers and missing data never become sale alerts',()=>{assert.deepEqual(tradeDiff(tr(),tr({humanTokenAmount:0,sumTransferOut:10,closedAt:'2026-09-06T02:00:00Z'})).actions,[]);assert.equal(tradeDiff(tr(),null).state,'UNKNOWN');assert.equal(tradeDiff(tr(),tr({humanTokenAmount:9})).state,'UNKNOWN');});
+test('net-zero buy and sell both survive',()=>assert.deepEqual(tradeDiff(tr(),tr({sumSwapOpen:15,sumSwapClosed:5})).actions,['ADD','SELL']));
+test('new following and historical new entries do not alert',()=>{assert.deepEqual(tradeDiff(null,tr(),{baselineAt:Date.parse('2026-09-06T02:00:00Z'),allowNew:true}).actions,[]);assert.deepEqual(tradeDiff(null,tr(),{baselineAt:Date.parse('2026-09-06T00:00:00Z'),allowNew:true}).actions,['BUY']);});
+test('cumulative regression returns UNKNOWN',()=>assert.equal(tradeDiff(tr(),tr({sumSwapOpen:1})).state,'UNKNOWN'));
+test('cash is excluded, cost uses active trade average',()=>{const p=positions({balances:[balance(),balance({balance:{tokenAddress:'Cash',shiftedBalance:4},valuation:{includeUnrealizedPnl:false},activeTrade:null})]});assert.equal(p.positions.length,1);assert.equal(p.cash.length,1);assert.equal(p.positions[0].pnlPercent,100);assert.equal(p.positions[0].value,20);});
+test('malformed balance aborts entire snapshot',()=>{assert.throws(()=>positions({}));assert.throws(()=>positions({balances:[balance(),{}]}));assert.throws(()=>positions({balances:[balance({balance:{tokenAddress:'0xAbC',shiftedBalance:null}})]}));});
+test('truncation is explicit, absent token fails',()=>{const r=validateFriends({tokens:[{tokenAddress:'0xABC',networkId:56,topHolders:[],totalHolders:2}]},{key:key('0xABC',56)});assert.equal(r.complete,false);assert.throws(()=>validateFriends({tokens:[]},{key:'none'}));});
+test('authentication 431 and invalid JSON never become empty success',()=>{assert.throws(()=>unwrap({error:'unauthorized'},431),/AUTH_REQUIRED/);assert.throws(()=>unwrap({},429),/RATE_LIMIT/);assert.throws(()=>unwrap(null,200));assert.throws(()=>unwrap({success:false,responseObject:[]},200));});

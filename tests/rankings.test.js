@@ -1,0 +1,11 @@
+import test from 'node:test';
+import assert from 'node:assert/strict';
+import {normalizeTop,selectHolders,holderMetrics} from '../src/rankings.js';
+import {translate} from '../src/i18n.js';
+const token={key:'0xabc:56',price:2,marketCap:2000000};
+const raw=()=>[{tokenAddress:'0xabc',networkId:56,totalHolders:100,topHolders:Array.from({length:12},(_,i)=>({user:{id:String(i),userHandle:'kol'+i},tradeId:'t'+i,humanAmount:i+1,value:(i+1)*2,averageEntryPrice:12-i,unrealizedPnl:-i,costBasis:30}))}];
+test('top and lowest-entry filters sort independently within returned sample',()=>{const ranking=normalizeTop(raw(),token);const s={ranking,holders:{a:{id:'followed'}}};assert.equal(ranking.complete,false);assert.equal(ranking.total,100);assert.equal(selectHolders(token,s,'top').length,10);assert.equal(selectHolders(token,s,'top')[0].id,'11');assert.equal(selectHolders(token,s,'low')[0].id,'11');assert.deepEqual(selectHolders(token,s,'following'),[{id:'followed'}]);});
+test('lowest-entry excludes unknown cost and closed positions',()=>{const ranking=normalizeTop(raw(),token);ranking.holders[11].avgEntryPrice=null;ranking.holders[10].quantity=0;assert.equal(selectHolders(token,{ranking},'low')[0].id,'9');assert.equal(selectHolders({...token,price:null},{ranking},'low').length,0);});
+test('ranking identity and malformed rows fail closed',()=>{assert.throws(()=>normalizeTop(raw(),{...token,key:'wrong:56'}));const data=raw();data[0].topHolders[0].value=null;assert.throws(()=>normalizeTop(data,token));});
+test('metrics distinguish detailed positions from API ranking PnL',()=>{assert.deepEqual(holderMetrics({trade:{quantity:10,avgEntryPrice:1}},token),{value:20,pnl:10,pct:100,entryCap:1000000});assert.equal(holderMetrics({quantity:2,value:4,unrealizedPnl:-2,costBasis:6,avgEntryPrice:3},token).pnl,-2);assert.equal(holderMetrics({trade:{quantity:10}},token).pnl,null);});
+test('UI translation supports headings, runtime fragments and cadence',()=>{assert.equal(translate('持仓金额','en'),'Position value');assert.equal(translate('✅ 已复制','en'),'✅ Copied');assert.equal(translate('我的盈亏 $-20.00 · 持有','en'),'My P&L $-20.00 · Holding');assert.equal(translate('市值 $1.2M','en'),'Market cap $1.2M');assert.match(translate('全部 4 个持仓：市值约每 1 分钟检查；KOL 一次完整复查保守估算约 6 分钟（网络耗时另计）。','en'),/All 4 positions/);assert.equal(translate('持仓金额','zh'),'持仓金额');});

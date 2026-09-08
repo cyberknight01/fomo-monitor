@@ -1,0 +1,10 @@
+import test from 'node:test';
+import assert from 'node:assert/strict';
+import {buildAlertMessage} from '../src/notifications.js';
+import {countdown,duration} from '../src/countdown.js';
+const config={enabled:true,pollMinutes:1,kolMinutes:5};
+const state={own:{positions:[{key:'a'},{key:'b'}]},tokens:{a:{at:100000},b:{at:200000}}};
+test('TG operation titles are colored emoji with explicit bold entities',()=>{for(const type of ['BUY','ADD','SELL','EXIT']){const m=buildAlertMessage({type,symbol:'YES',handle:'demo',tokenKey:'abc:1',at:Date.now()});assert.equal(m.entities[0].type,'bold');assert.equal(m.text.slice(0,m.entities[0].length),m.text.split('\n')[0]);assert.ok(m.entities[0].length<m.text.length);}});
+test('TG uses plain text entities so HTML-like names remain data',()=>{const m=buildAlertMessage({type:'ADD',symbol:'<b>🪙&</b>',handle:'<script>',tokenKey:'abc:1',at:Date.now()});assert.ok(m.text.includes('<b>🪙&</b>'));assert.ok(m.text.includes('<script>'));assert.equal(m.entities.length,1);});
+test('countdown uses actual alarm and aligns earliest KOL eligibility to alarm',()=>{assert.deepEqual(countdown(config,state,{nextAt:220000},true,200000),{market:'00:20',kol:'03:20'});});
+test('paused auth retry ongoing and overdue states are not fake timers',()=>{assert.equal(countdown({...config,enabled:false},state,{},true).market,'已暂停');assert.equal(countdown(config,state,{},false).kol,'待同步');assert.equal(countdown(config,{...state,retryAt:260000},{},true,200000).market,'限流 01:00');assert.equal(countdown(config,state,{inProgress:true},true).kol,'检查中');assert.equal(countdown(config,state,{nextAt:100000},true,500000).market,'等待执行');assert.equal(duration(0),'00:00');});

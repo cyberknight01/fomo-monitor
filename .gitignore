@@ -1,0 +1,10 @@
+.DS_Store
+node_modules/
+.env
+.env.*
+*.har
+*.zip
+work/
+coverage/
+fomo-monitor-debug*.json
+dist/

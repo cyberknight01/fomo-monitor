@@ -20,10 +20,10 @@ function holderRow(h,p,s,filter){
  const m=holderMetrics(h,p),stats=el('div',null,'align-right holder-stats');stats.append(el('small','持仓金额','stat-label'),el('strong',money(m.value),'notranslate'));
  const pnl=el('small',null,tone(m.pnl));pnl.append(el('span','未实现盈亏 '),el('span',m.pnl==null?'—':money(m.pnl)+(m.pct==null?'':` (${m.pct>=0?'+':''}${m.pct.toFixed(1)}%)`),'notranslate'));stats.append(pnl,el('small',h.uncertain?'待确认':statusName(h.state)));
  row.append(avatar,name,ai,stats);container.append(row);
- if(filter==='low'){const entry=el('small',null,'entry-cap');entry.append(el('span','平均建仓市值（估算） '),el('span',compact(m.entryCap),'notranslate'));container.append(entry);}
+ const entry=el('div',null,'entry-cap');entry.append(el('span','平均建仓市值（估算）'),el('strong',compact(m.entryCap),'notranslate'));container.append(entry);
  const history=el('details',null,'history');const historyKey=p.key+'|'+h.id;history.open=historyOpened.has(historyKey);history.ontoggle=()=>{if(history.isConnected)history.open?historyOpened.add(historyKey):historyOpened.delete(historyKey);};const events=historyFor(s,p,h);history.append(el('summary','操作记录'+` (${events.length})`));
  if(!events.length)history.append(el('small','暂无已记录操作','muted'));
- for(const e of events){const line=el('div',null,'history-line '+tone(['BUY','ADD'].includes(e.type)?1:-1));line.append(el('span',statusName(e.type)),el('span',time(e.at),'notranslate'));const fills=e.fills??[];if(fills.length&&fills.every(f=>Number.isFinite(f.usdAmount))){const sample=el('span',money(fills.reduce((n,f)=>n+f.usdAmount,0)),'sample-amount');sample.title='匹配成交样本金额，可能不完整';line.append(sample);}else line.append(el('span','待确认'));history.append(line);}
+ for(const e of events){const buying=['BUY','ADD'].includes(e.type),line=el('div',null,'history-line '+(buying?'trade-buy':'trade-sell'));const action=el('strong',(buying?'买入 ':'卖出 ')+statusName(e.type));const fills=e.fills??[];const known=fills.filter(f=>Number.isFinite(f.usdAmount));const usd=known.length?known.reduce((n,f)=>n+f.usdAmount,0):null;const mc=known.find(f=>Number.isFinite(f.marketCap))?.marketCap;line.append(action,el('span',usd==null?'金额待确认':money(usd),'trade-amount notranslate'),el('span',Number.isFinite(mc)?'MC '+compact(mc):'MC 待确认','trade-cap notranslate'),el('small',time(e.at),'notranslate'));history.append(line);}
  history.append(el('small','仅显示本插件已记录的变化，不代表完整历史。','muted'));container.append(history);return container;
 }
 export function tokenCards(s){

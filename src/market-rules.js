@@ -14,8 +14,8 @@ export function normalizeRule(value){
 }
 export function marketSignals(rule,previous,marketCap){
  if(!rule?.enabled||!Number.isFinite(marketCap)||marketCap<=0)return {state:previous,signals:[]};
- const signature=ruleSignature(rule);const old=previous?.signature===signature?previous:null;const fired=new Set(old?.fired??[]),signals=[];
+ const signature=ruleSignature(rule);const saved=previous?.signature===signature?previous:null;const old=saved??(Number.isFinite(rule.armedAtCap)&&rule.armedAtCap>0?{last:rule.armedAtCap,fired:[]}:null);const fired=new Set(old?.fired??[]),signals=[];
  const tiers=rule.tiers??rule.multiples.flatMap(multiple=>(rule.direction==='both'?['up','down']:[rule.direction??'up']).map(direction=>({direction,target:rule.base*multiple,multiple})));
  if(old)for(const t of tiers){const multiple=t.multiple??t.target/rule.base;const id=t.direction==='up'?multiple:'down:'+multiple;const crossed=t.direction==='up'?old.last<t.target&&marketCap>=t.target:old.last>t.target&&marketCap<=t.target;if(!fired.has(id)&&crossed){fired.add(id);signals.push({multiple,target:t.target,marketCap,base:rule.base,direction:t.direction});}}
- return {state:{signature,last:marketCap,fired:[...fired]},signals};
+ return {state:{signature,last:marketCap,checkedAt:Date.now(),fired:[...fired]},signals};
 }

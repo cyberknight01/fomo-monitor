@@ -2,6 +2,7 @@ import test from 'node:test';import assert from 'node:assert/strict';import {nor
 const rule=normalizeRule({enabled:true,base:100,multiples:'2,3'});
 test('upward crossing, multiple levels and one-shot persistence',()=>{let a=marketSignals(rule,null,100);assert.equal(a.signals.length,0);a=marketSignals(rule,a.state,350);assert.deepEqual(a.signals.map(x=>x.multiple),[2,3]);let b=marketSignals(rule,a.state,150);b=marketSignals(rule,JSON.parse(JSON.stringify(b.state)),400);assert.equal(b.signals.length,0);});
 test('initial already-above threshold does not replay historical alert',()=>assert.equal(marketSignals(rule,null,500).signals.length,0));
+test('saved arming cap recovers crossing after market state is lost',()=>{const armed={...rule,armedAtCap:100};const result=marketSignals(armed,null,350);assert.deepEqual(result.signals.map(x=>x.multiple),[2,3]);assert.ok(Number.isFinite(result.state.checkedAt));});
 test('invalid or missing market cap preserves prior state',()=>{const a=marketSignals(rule,null,100);for(const n of [null,NaN,undefined,0])assert.deepEqual(marketSignals(rule,a.state,n),{state:a.state,signals:[]});});
 test('changing baseline and rearming create quiet new baseline',()=>{let a=marketSignals(rule,null,100);a=marketSignals(rule,a.state,220);const next={...rule,base:200};assert.equal(marketSignals(next,a.state,500).signals.length,0);assert.equal(marketSignals(rule,null,220).signals.length,0);});
 test('disabled rule never fires',()=>assert.equal(marketSignals({...rule,enabled:false},{last:100},400).signals.length,0));

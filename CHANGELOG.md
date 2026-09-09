@@ -1,5 +1,12 @@
 # Changelog
 
+## V0.1.1 — Alert reliability and financial display
+
+- Persist the arming market cap so a crossed level can still be detected if transient market state is lost.
+- Show current market cap, last threshold check, Telegram readiness, and pending/sent status for every rule.
+- Show estimated average entry market cap prominently for KOLs in all three ranking filters.
+- Present recorded buy/sell amount and market cap with distinct green, red, and yellow financial emphasis.
+
 ## V0.1 — Initial GitHub release
 
 - Chrome Manifest V3 background API monitor for positions and followed KOLs.

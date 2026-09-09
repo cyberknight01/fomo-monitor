@@ -1,7 +1,7 @@
 {
   "manifest_version": 3,
   "name": "FOMO Monitor · API-first",
-  "version": "0.1.0",
+  "version": "0.1.1",
   "minimum_chrome_version": "120",
   "description": "后台 API 持仓与关注者监控；数量、成交证据和 Telegram 告警。",
   "permissions": [
@@ -54,5 +54,5 @@
     "48": "icons/icon-48.png",
     "128": "icons/icon-128.png"
   },
-  "version_name": "V0.1"
+  "version_name": "V0.1.1"
 }

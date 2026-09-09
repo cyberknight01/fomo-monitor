@@ -14,6 +14,7 @@ function updateCadence(){const n=latest?.state.own?.positions.length??0;const p=
 $('preset').onchange=()=>{const v=presets[$('preset').value];if(v){['pollMinutes','kolMinutes','tokensPerRun'].forEach((k,i)=>$(k).value=v[i]);updateCadence();}};
 for(const k of ['pollMinutes','kolMinutes','tokensPerRun'])$(k).oninput=updateCadence;
 const inputCap=n=>Number.isFinite(n)?n>=1e9?n/1e9+'B':n>=1e6?n/1e6+'M':n>=1e3?n/1e3+'K':String(n):'';
+function ruleMonitorStatus(r,key,p,rule){if(!rule)return '尚未保存市值提醒规则';const state=r.state.marketState?.[key],tiers=rule.tiers??[];const fired=new Set(state?.fired??[]);const labels=tiers.map(t=>{const multiple=t.target/rule.base,id=t.direction==='up'?multiple:'down:'+multiple;return `${t.direction==='up'?'涨':'跌'} ${compact(t.target)} ${fired.has(id)?'✅已发送':'⏳待触发'}`;});const telegram=r.config.telegramEnabled&&r.config.telegramBotToken&&r.config.telegramChatId?'Telegram 已就绪':'Telegram 未完整启用';return `当前市值 ${compact(p?.marketCap)} · 最近检查 ${time(state?.checkedAt)}\n${telegram} · ${labels.join(' ｜ ')||'暂无档位'}`;}
 function renderRules(r){
  const root=$('rules');root.replaceChildren();const positions=r.state.own?.positions??[];const keys=new Set([...positions.map(p=>p.key),...Object.keys(r.config.marketRules??{})]);
  const toolbar=el('div');for(const [text,value] of [['一键全选告警',true],['全部取消告警',false]]){const b=el('button',text);b.onclick=()=>action(b,async()=>{await send('TOKEN_ALERTS',{all:true,enabled:value});rulesLoaded=false;await render();});toolbar.append(b);}root.append(toolbar);
@@ -21,6 +22,7 @@ function renderRules(r){
  const content=el('div',null,'token-body');card.append(content);root.append(card);
  const master=el('input');master.type='checkbox';master.checked=tokenAlertsEnabled(r.config,key);const ml=el('label','全部告警（勾选自动保存）');ml.prepend(master);content.append(ml);master.onchange=()=>action(master,async()=>{try{await send('TOKEN_ALERTS',{key,enabled:master.checked});}catch(e){master.checked=!master.checked;throw e;}});
  const enabled=el('input');enabled.type='checkbox';enabled.checked=rule?.enabled??false;const en=el('label','启用市值阈值规则（需保存）');en.prepend(enabled);content.append(en);
+ const monitor=el('p',ruleMonitorStatus(r,key,p,rule),'rule-monitor-status');content.append(monitor);
  const base=el('input');base.value=inputCap(rule?.base??p?.entryMarketCap);base.placeholder='例如 750K、1.2M';const bl=el('label','基准建仓市值（美元 · 估算）');bl.append(base);content.append(bl);const hint=el('p',null,'muted');content.append(hint);const update=()=>hint.textContent='基准 '+compact(parseCompact(base.value))+' · 平均买入价 × 当前隐含供应量';base.oninput=update;update();
  const use=el('button','使用持仓买入市值');use.disabled=!p?.entryMarketCap;use.onclick=()=>{base.value=inputCap(p.entryMarketCap);update();};content.append(use);if(!p?.entryMarketCap)content.append(el('small','缺少有效买入价时需手动设置，不以当前市值代替。','warn'));
  const editors=[];const initial=rule?.tiers??rule?.multiples?.flatMap(v=>(rule.direction==='both'?['up','down']:[rule.direction??'up']).map(direction=>({direction,mode:'multiple',value:v})))??[{direction:'up',mode:'percent',value:100},{direction:'down',mode:'percent',value:20}];

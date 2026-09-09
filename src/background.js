@@ -151,8 +151,10 @@ chrome.runtime.onMessage.addListener((m,sender,respond)=>{
     if(m.type==='SAVE_RULE'){
       const c=await config(),s=await read();if(!s.own?.positions.some(p=>p.key===m.key)&&!c.marketRules?.[m.key])throw new Error('请先同步此 Token 持仓');
       const rule=normalizeRule(m.rule);const old=c.marketRules?.[m.key];const changed=ruleSignature(old)!==ruleSignature(rule)||old?.enabled!==rule.enabled;
-      rule.revision=changed?crypto.randomUUID():old.revision;c.marketRules={...c.marketRules,[m.key]:rule};
-      if(changed||m.rearm){rule.revision=crypto.randomUUID();s.marketState??={};delete s.marketState[m.key];const p=s.own?.positions.find(p=>p.key===m.key);const result=marketSignals(rule,null,p?.marketCap);if(result.state)s.marketState[m.key]=result.state;await save(s);}
+      const p=s.own?.positions.find(p=>p.key===m.key);rule.revision=changed?crypto.randomUUID():old.revision;
+      if(changed||m.rearm){rule.revision=crypto.randomUUID();rule.armedAt=Date.now();rule.armedAtCap=Number.isFinite(p?.marketCap)?p.marketCap:null;}else{rule.armedAt=old?.armedAt;rule.armedAtCap=old?.armedAtCap;}
+      c.marketRules={...c.marketRules,[m.key]:rule};
+      if(changed||m.rearm){s.marketState??={};delete s.marketState[m.key];const result=marketSignals(rule,null,p?.marketCap);if(result.state)s.marketState[m.key]=result.state;await save(s);}
       await chrome.storage.local.set({config:c});return {ok:true};
     }
     if(m.type==='GET'){const c=await config(),s=await read(),a=(await chrome.storage.session.get('auth')).auth;return {config:{...c,telegramBotToken:c.telegramBotToken?'[saved]':''},state:s,auth:a?{owner:a.owner,at:a.at}:null};}
